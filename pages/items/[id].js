@@ -8,27 +8,12 @@ import Image from "next/image";
 import Head from "next/head";
 import Spinner from "@/components/Spinner";
 
-export async function getStaticPaths() {
-  const res = await axios.get("/products/");
-  const products = res.data.results;
-  const paths = products.map((product) => ({
-    params: {
-      id: String(product.id),
-    },
-  }));
+// 서버사이드 렌더링 방식
 
-  return {
-    paths,
-    fallback: true,
-    // 정적 생성을 하지 않은 경로로 진입했을때 따로 처리를 해주려면 true, 따로 처리 안하려면 false
-    // true하면 미처 정적 생성을 하지 않은 경로로 진입하면, getStaticProps를 사용해서 product를 찾아준다. (예: /items/432634243)
-    // true를 했을시 아래 if (!product) return ()으로 처리를 해줘야 한다.
-  };
-}
-
-export async function getStaticProps(context) {
+export async function getServerSideProps(context) {
   const productId = context.params["id"];
   let product;
+
   try {
     const res = await axios.get(`/products/${productId}`);
     product = res.data;
@@ -38,29 +23,20 @@ export async function getStaticProps(context) {
     };
   }
 
+  const res = await axios.get(`/size_reviews/?product_id=${productId}`);
+  const sizeReviews = res.data.results ?? [];
+
   return {
     props: {
       product,
+      sizeReviews,
     },
   };
 }
 
-export default function Product({ product }) {
-  const [sizeReviews, setSizeReviews] = useState([]);
+export default function Product({ product, sizeReviews }) {
   const router = useRouter();
   const { id } = router.query;
-
-  async function getSizeReviews(targetId) {
-    const res = await axios.get(`/size_reviews/?product_id=${targetId}`);
-    const nextSizeReviews = res.data.results ?? [];
-    setSizeReviews(nextSizeReviews);
-  }
-
-  useEffect(() => {
-    if (!id) return;
-
-    getSizeReviews(id);
-  }, [id]);
 
   // 데이터가 없을때 보여줄 코드
   if (!product)
