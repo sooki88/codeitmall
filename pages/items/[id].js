@@ -6,18 +6,49 @@ import SizeReviewList from "@/components/SizeReviewList";
 import StarRating from "@/components/StarRating";
 import Image from "next/image";
 import Head from "next/head";
+import Spinner from "@/components/Spinner";
 
-export default function Product() {
-  const [product, setProduct] = useState();
+export async function getStaticPaths() {
+  const res = await axios.get("/products/");
+  const products = res.data.results;
+  const paths = products.map((product) => ({
+    params: {
+      id: String(product.id),
+    },
+  }));
+
+  return {
+    paths,
+    fallback: true,
+    // 정적 생성을 하지 않은 경로로 진입했을때 따로 처리를 해주려면 true, 따로 처리 안하려면 false
+    // true하면 미처 정적 생성을 하지 않은 경로로 진입하면, getStaticProps를 사용해서 product를 찾아준다. (예: /items/432634243)
+    // true를 했을시 아래 if (!product) return ()으로 처리를 해줘야 한다.
+  };
+}
+
+export async function getStaticProps(context) {
+  const productId = context.params["id"];
+  let product;
+  try {
+    const res = await axios.get(`/products/${productId}`);
+    product = res.data;
+  } catch {
+    return {
+      notFound: true, // 이상한 아이디 값으로 들어왔을시 404페이지로 가도록 처리해주려면 true (예. /itmes/badproduct)
+    };
+  }
+
+  return {
+    props: {
+      product,
+    },
+  };
+}
+
+export default function Product({ product }) {
   const [sizeReviews, setSizeReviews] = useState([]);
   const router = useRouter();
   const { id } = router.query;
-
-  async function getProduct(targetId) {
-    const res = await axios.get(`/products/${targetId}`);
-    const nextProduct = res.data;
-    setProduct(nextProduct);
-  }
 
   async function getSizeReviews(targetId) {
     const res = await axios.get(`/size_reviews/?product_id=${targetId}`);
@@ -28,11 +59,16 @@ export default function Product() {
   useEffect(() => {
     if (!id) return;
 
-    getProduct(id);
     getSizeReviews(id);
   }, [id]);
 
-  if (!product) return null;
+  // 데이터가 없을때 보여줄 코드
+  if (!product)
+    return (
+      <div className={styles.loading}>
+        <Spinner />
+      </div>
+    );
 
   return (
     <>
