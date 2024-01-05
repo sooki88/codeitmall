@@ -1,25 +1,24 @@
-import { useState, useEffect } from "react";
-import { useRouter } from "next/router";
+import { useState } from "react";
+import Image from "next/image";
 import axios from "@/lib/axios";
 import styles from "@/styles/Product.module.css";
 import SizeReviewList from "@/components/SizeReviewList";
 import StarRating from "@/components/StarRating";
-import Image from "next/image";
-import Head from "next/head";
 import Spinner from "@/components/Spinner";
-
-// 서버사이드 렌더링 방식
+import Dropdown from "@/components/Dropdown";
+import Input from "@/components/Input";
+import Button from "@/components/Button";
+import sizeReviewLabels from "@/lib/sizeReviewLabels";
 
 export async function getServerSideProps(context) {
   const productId = context.params["id"];
   let product;
-
   try {
     const res = await axios.get(`/products/${productId}`);
     product = res.data;
   } catch {
     return {
-      notFound: true, // 이상한 아이디 값으로 들어왔을시 404페이지로 가도록 처리해주려면 true (예. /itmes/badproduct)
+      notFound: true,
     };
   }
 
@@ -34,11 +33,38 @@ export async function getServerSideProps(context) {
   };
 }
 
-export default function Product({ product, sizeReviews }) {
-  const router = useRouter();
-  const { id } = router.query;
+export default function Product({ product, sizeReviews: initialSizeReviews }) {
+  const [sizeReviews, setSizeReviews] = useState(initialSizeReviews);
+  const [formValue, setFormValue] = useState({
+    size: "M",
+    sex: "male",
+    height: 173,
+    fit: "good",
+  });
 
-  // 데이터가 없을때 보여줄 코드
+  async function handleSubmit(e) {
+    e.preventDefault();
+    const sizeReview = {
+      ...formValue,
+      productId: product.id,
+    };
+    const res = await axios.post("/size_reviews/", sizeReview);
+    const newSizeReview = res.data;
+    setSizeReviews((prevSizeReviews) => [newSizeReview, ...prevSizeReviews]);
+  }
+
+  async function handleInputChange(e) {
+    const { name, value } = e.target;
+    handleChange(name, value);
+  }
+
+  async function handleChange(name, value) {
+    setFormValue({
+      ...formValue,
+      [name]: value,
+    });
+  }
+
   if (!product)
     return (
       <div className={styles.loading}>
@@ -48,21 +74,13 @@ export default function Product({ product, sizeReviews }) {
 
   return (
     <>
-      <Head>
-        <title>{product.name} - Codeitmall</title>
-      </Head>
       <h1 className={styles.name}>
         {product.name}
         <span className={styles.englishName}>{product.englishName}</span>
       </h1>
       <div className={styles.content}>
         <div className={styles.image}>
-          <Image
-            fill
-            src={product.imgUrl}
-            alt={product.name}
-            style={{ objectFit: "cover" }}
-          />
+          <Image fill src={product.imgUrl} alt={product.name} />
         </div>
         <div>
           <section className={styles.section}>
@@ -116,6 +134,63 @@ export default function Product({ product, sizeReviews }) {
           </section>
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>사이즈 추천하기</h2>
+            <form className={styles.sizeForm} onSubmit={handleSubmit}>
+              <label className={styles.label}>
+                사이즈
+                <Dropdown
+                  className={styles.input}
+                  name="size"
+                  value={formValue.size}
+                  options={[
+                    { label: "S", value: "S" },
+                    { label: "M", value: "M" },
+                    { label: "L", value: "L" },
+                    { label: "XL", value: "XL" },
+                  ]}
+                  onChange={handleChange}
+                />
+              </label>
+              <label className={styles.label}>
+                성별
+                <Dropdown
+                  className={styles.input}
+                  name="sex"
+                  value={formValue.sex}
+                  onChange={handleChange}
+                  options={[
+                    { label: sizeReviewLabels.sex["male"], value: "male" },
+                    { label: sizeReviewLabels.sex["female"], value: "female" },
+                  ]}
+                />
+              </label>
+              <label className={styles.label}>
+                키
+                <Input
+                  className={styles.input}
+                  name="height"
+                  min="50"
+                  max="200"
+                  type="number"
+                  value={formValue.height}
+                  onChange={handleInputChange}
+                />
+              </label>
+              <label className={styles.label}>
+                사이즈 추천
+                <Dropdown
+                  className={styles.input}
+                  name="fit"
+                  value={formValue.fit}
+                  options={[
+                    { label: sizeReviewLabels.fit["small"], value: "small" },
+                    { label: sizeReviewLabels.fit["good"], value: "good" },
+                    { label: sizeReviewLabels.fit["big"], value: "big" },
+                  ]}
+                  onChange={handleChange}
+                />
+              </label>
+              <Button className={styles.submit}>작성하기</Button>
+            </form>
           </section>
         </div>
       </div>
